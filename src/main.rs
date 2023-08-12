@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    process::{Child, ExitStatus},
+};
 
 mod load_app;
 
@@ -31,6 +34,14 @@ fn key_is_down(key: winapi::ctypes::c_int) -> bool {
     unsafe { winapi::um::winuser::GetKeyState(key) & 1 << 15 != 0 }
 }
 
+fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
+    if let Some(child) = child {
+        child.try_wait().unwrap()
+    } else {
+        None
+    }
+}
+
 fn main() {
     let app = load_app::App::new(&PathBuf::from("./app.dll"));
     app.update();
@@ -39,6 +50,11 @@ fn main() {
     let mut prev_tick = std::time::SystemTime::now();
     let mut escape_key = Button::new(winapi::um::winuser::VK_ESCAPE);
     let mut f5_key = Button::new(winapi::um::winuser::VK_F5);
+
+    let mut build_cmd = std::process::Command::new("cargo");
+    build_cmd.args(["build", "-p", "app"]);
+    let mut build_cmd_invokation: Option<Child> = None;
+
     'main: loop {
         /* Input */
         let now = std::time::SystemTime::now();
@@ -51,13 +67,23 @@ fn main() {
             break 'main;
         }
 
-        if f5_key.pressed_now() {
-            println!("F5 pressed"); // todo, rebuild here
+        if f5_key.pressed_now() && build_cmd_invokation.is_none() {
+            println!("Rebuilding code");
+            build_cmd_invokation = Some(build_cmd.spawn().unwrap());
         }
 
         if now.duration_since(prev_tick).unwrap().as_millis() > 1000 {
             prev_tick = now;
-            app.update(); // make this "update"
+            app.update();
+        }
+
+        if let Some(status) = check_command_status(&mut build_cmd_invokation) {
+            build_cmd_invokation = None;
+            if status.success() {
+                println!("Done rebuilding");
+            } else {
+                eprintln!("Build failed");
+            }
         }
     }
 
