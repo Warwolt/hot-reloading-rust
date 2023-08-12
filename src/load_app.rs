@@ -13,7 +13,17 @@ pub struct App {
 }
 
 struct VTable {
-    update: RawSymbol<fn() -> ()>,
+    update: RawSymbol<fn(&mut app::State) -> ()>,
+    render: RawSymbol<fn(&app::State) -> ()>,
+}
+
+impl VTable {
+    fn load(lib: &Library) -> Self {
+        VTable {
+            update: load_symbol(lib, "update"),
+            render: load_symbol(lib, "render"),
+        }
+    }
 }
 
 fn get_paths(lib_name: &str) -> (PathBuf, PathBuf) {
@@ -28,12 +38,6 @@ fn get_paths(lib_name: &str) -> (PathBuf, PathBuf) {
     (lib_path, lib_copy_path)
 }
 
-fn load_functions(lib: &Library) -> VTable {
-    VTable {
-        update: load_symbol(lib, "update"),
-    }
-}
-
 fn load_symbol<T>(lib: &Library, symbol: &str) -> RawSymbol<T> {
     unsafe { lib.get::<T>(symbol.as_bytes()).unwrap().into_raw() }
 }
@@ -46,7 +50,7 @@ impl App {
         std::fs::copy(&lib_path, &lib_copy_path).unwrap();
 
         let lib = unsafe { Library::new(&lib_copy_path).unwrap() };
-        let functions = load_functions(&lib);
+        let functions = VTable::load(&lib);
         App {
             lib: Some(lib),
             functions,
@@ -55,8 +59,12 @@ impl App {
         }
     }
 
-    pub fn update(&self) {
-        (self.functions.update)()
+    pub fn update(&self, state: &mut app::State) {
+        (self.functions.update)(state);
+    }
+
+    pub fn render(&self, state: &app::State) {
+        (self.functions.render)(state);
     }
 
     pub fn reload_library(&mut self) {
@@ -68,6 +76,6 @@ impl App {
 
         // reload library
         self.lib = Some(unsafe { Library::new(&self.lib_copy_path).unwrap() });
-        self.functions = load_functions(&self.lib.as_ref().unwrap());
+        self.functions = VTable::load(&self.lib.as_ref().unwrap());
     }
 }

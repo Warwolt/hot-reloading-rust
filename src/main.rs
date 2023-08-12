@@ -41,9 +41,8 @@ fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
 
 fn main() {
     let mut app = load_app::App::new("app.dll");
-    app.update();
+    let mut state = app::State { counter: 0 };
 
-    // loop until escape
     let mut prev_tick = std::time::SystemTime::now();
     let mut escape_key = Button::new(winapi::um::winuser::VK_ESCAPE);
     let mut f5_key = Button::new(winapi::um::winuser::VK_F5);
@@ -71,7 +70,8 @@ fn main() {
 
         if now.duration_since(prev_tick).unwrap().as_millis() > 1000 {
             prev_tick = now;
-            app.update();
+            app.update(&mut state);
+            app.render(&state);
         }
 
         if let Some(status) = check_command_status(&mut build_cmd_invokation) {
