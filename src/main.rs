@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 mod load_app;
 
 struct Button {
@@ -30,7 +32,7 @@ fn key_is_down(key: winapi::ctypes::c_int) -> bool {
 }
 
 fn main() {
-    let app = load_app::App::new("./app.dll");
+    let app = load_app::App::new(&PathBuf::from("./app.dll"));
     app.update();
 
     // loop until escape

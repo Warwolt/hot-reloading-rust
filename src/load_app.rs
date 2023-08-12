@@ -1,6 +1,7 @@
 use libloading::os::windows::Symbol as RawSymbol;
 use libloading::Library;
-use std::ffi::OsStr;
+use std::env;
+use std::path::Path;
 
 pub struct App {
     _lib: Library,
@@ -8,8 +9,18 @@ pub struct App {
 }
 
 impl App {
-    pub fn new<P: AsRef<OsStr>>(lib_path: P) -> Self {
-        let lib = unsafe { Library::new(lib_path).unwrap() };
+    pub fn new(lib_path: &Path) -> Self {
+        assert!(lib_path.is_relative());
+        let exe_path = env::current_exe().unwrap();
+        let exe_dir = exe_path.parent().unwrap();
+        let absolute_lib_path = exe_dir.join(lib_path);
+        let absolute_lib_copy_path = format!(
+            "{}-0.dll",
+            absolute_lib_path.file_stem().unwrap().to_string_lossy()
+        );
+        std::fs::copy(&absolute_lib_path, &absolute_lib_copy_path).unwrap();
+
+        let lib = unsafe { Library::new(&absolute_lib_copy_path).unwrap() };
         let update = load_symbol(&lib, "update");
         App { _lib: lib, update }
     }
