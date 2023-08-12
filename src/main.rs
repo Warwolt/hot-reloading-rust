@@ -1,5 +1,30 @@
 mod load_app;
 
+struct Button {
+    key: winapi::ctypes::c_int,
+    was_pressed: bool,
+    is_pressed: bool,
+}
+
+impl Button {
+    fn new(key: winapi::ctypes::c_int) -> Self {
+        Button {
+            key,
+            was_pressed: false,
+            is_pressed: false,
+        }
+    }
+
+    fn update(&mut self) {
+        self.was_pressed = self.is_pressed;
+        self.is_pressed = key_is_down(self.key);
+    }
+
+    fn pressed_now(&self) -> bool {
+        !self.was_pressed && self.is_pressed
+    }
+}
+
 fn key_is_down(key: winapi::ctypes::c_int) -> bool {
     unsafe { winapi::um::winuser::GetKeyState(key) & 1 << 15 != 0 }
 }
@@ -10,26 +35,21 @@ fn main() {
 
     // loop until escape
     let mut prev_tick = std::time::SystemTime::now();
-    let mut escape_pressed = false;
-    let mut f5_pressed = false;
+    let mut escape_key = Button::new(winapi::um::winuser::VK_ESCAPE);
+    let mut f5_key = Button::new(winapi::um::winuser::VK_F5);
     'main: loop {
         /* Input */
         let now = std::time::SystemTime::now();
 
-        let escape_pressed_prev = escape_pressed;
-        escape_pressed = key_is_down(winapi::um::winuser::VK_ESCAPE);
-        let escape_pressed_now = !escape_pressed_prev && escape_pressed;
-
-        let f5_pressed_prev = f5_pressed;
-        f5_pressed = key_is_down(winapi::um::winuser::VK_F5);
-        let f5_pressed_now = !f5_pressed_prev && f5_pressed;
+        escape_key.update();
+        f5_key.update();
 
         /* Update */
-        if escape_pressed_now {
+        if escape_key.pressed_now() {
             break 'main;
         }
 
-        if f5_pressed_now {
+        if f5_key.pressed_now() {
             println!("F5 pressed"); // todo, rebuild here
         }
 
