@@ -1,6 +1,6 @@
-trait App {
-    fn update(state: &mut State);
-    fn render(state: &State);
+pub trait App {
+    fn update(&self, state: &mut State);
+    fn render(&self, state: &State);
 }
 
 pub struct State {
@@ -11,12 +11,12 @@ struct AppImpl;
 
 impl App for AppImpl {
     #[no_mangle]
-    fn update(state: &mut State) {
+    fn update(&self, state: &mut State) {
         state.counter += 1;
     }
 
     #[no_mangle]
-    fn render(state: &State) {
+    fn render(&self, state: &State) {
         println!("counter = {}", state.counter);
     }
 }

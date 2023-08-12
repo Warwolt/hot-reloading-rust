@@ -1,5 +1,9 @@
 use std::process::{Child, ExitStatus};
 
+use app::App;
+
+use crate::load_app::HotLoadedApp;
+
 mod load_app;
 
 struct Button {
@@ -40,7 +44,7 @@ fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
 }
 
 fn main() {
-    let mut app = load_app::App::new("app.dll");
+    let mut app = HotLoadedApp::new("app.dll");
     let mut state = app::State { counter: 0 };
 
     let mut prev_tick = std::time::SystemTime::now();
@@ -78,7 +82,7 @@ fn main() {
             build_cmd_invokation = None;
             if status.success() {
                 println!("Done rebuilding");
-                app.reload_library();
+                app.reload();
             } else {
                 eprintln!("Build failed");
             }

@@ -3,34 +3,58 @@ use libloading::Library;
 use std::env;
 use std::path::PathBuf;
 
-// TODO remove the dll copy on drop
-
-pub struct App {
+pub struct HotLoadedApp {
     lib: Option<Library>,
-    functions: VTable,
-    lib_path: PathBuf,
-    lib_copy_path: PathBuf,
+    orignal_lib_path: PathBuf,
+    copied_lib_path: PathBuf,
 }
 
-struct VTable {
-    update: RawSymbol<fn(&mut app::State) -> ()>,
-    render: RawSymbol<fn(&app::State) -> ()>,
-}
+impl HotLoadedApp {
+    /// library assumed to exist next to executable
+    pub fn new(lib_name: &str) -> Self {
+        // Loading a DLL locks it, which prevents rebuilding.
+        // Creating a copy to circumvent this.
+        let (orignal_lib_path, copied_lib_path) = library_paths(lib_name);
+        std::fs::copy(&orignal_lib_path, &copied_lib_path).unwrap();
+        let lib = Some(unsafe { Library::new(&copied_lib_path).unwrap() });
 
-impl VTable {
-    fn load(lib: &Library) -> Self {
-        VTable {
-            update: load_symbol(lib, "update"),
-            render: load_symbol(lib, "render"),
+        HotLoadedApp {
+            lib,
+            orignal_lib_path,
+            copied_lib_path,
         }
+    }
+
+    pub fn reload(&mut self) {
+        self.lib = None; // unload DLL
+        std::fs::copy(&self.orignal_lib_path, &self.copied_lib_path).unwrap();
+        self.lib = Some(unsafe { Library::new(&self.copied_lib_path).unwrap() });
+    }
+
+    fn lib(&self) -> &Library {
+        self.lib.as_ref().unwrap()
     }
 }
 
-fn get_paths(lib_name: &str) -> (PathBuf, PathBuf) {
-    let exe_path = env::current_exe().unwrap();
-    let exe_dir = exe_path.parent().unwrap();
-    let lib_path = exe_dir.join(lib_name);
-    let lib_copy_path = exe_dir.join(format!(
+impl app::App for HotLoadedApp {
+    fn update(&self, state: &mut app::State) {
+        (load_symbol::<fn(&Self, &mut app::State) -> ()>(&self.lib(), "update"))(&self, state);
+    }
+
+    fn render(&self, state: &app::State) {
+        (load_symbol::<fn(&Self, &app::State) -> ()>(&self.lib(), "render"))(&self, state);
+    }
+}
+
+impl Drop for HotLoadedApp {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.copied_lib_path);
+    }
+}
+
+fn library_paths(lib_name: &str) -> (PathBuf, PathBuf) {
+    let lib_path = exe_dir().join(lib_name);
+    let lib_copy_path = exe_dir().join(format!(
         "{}-0.dll",
         lib_path.file_stem().unwrap().to_string_lossy()
     ));
@@ -38,45 +62,12 @@ fn get_paths(lib_name: &str) -> (PathBuf, PathBuf) {
     (lib_path, lib_copy_path)
 }
 
-fn load_symbol<T>(lib: &Library, symbol: &str) -> RawSymbol<T> {
-    unsafe { lib.get::<T>(symbol.as_bytes()).unwrap().into_raw() }
+fn exe_dir() -> PathBuf {
+    let exe_path = env::current_exe().unwrap();
+    let exe_dir = exe_path.parent().unwrap();
+    exe_dir.to_owned()
 }
 
-impl App {
-    pub fn new(lib_name: &str) -> Self {
-        // To ensure that the DLL can be written to during a rebuild, a copy of
-        // the DLL is what's actually loaded
-        let (lib_path, lib_copy_path) = get_paths(lib_name);
-        std::fs::copy(&lib_path, &lib_copy_path).unwrap();
-
-        let lib = unsafe { Library::new(&lib_copy_path).unwrap() };
-        let functions = VTable::load(&lib);
-
-        App {
-            lib: Some(lib),
-            functions,
-            lib_path,
-            lib_copy_path,
-        }
-    }
-
-    pub fn update(&self, state: &mut app::State) {
-        (self.functions.update)(state);
-    }
-
-    pub fn render(&self, state: &app::State) {
-        (self.functions.render)(state);
-    }
-
-    pub fn reload_library(&mut self) {
-        // unload library
-        self.lib = None;
-
-        // copy rebuilt library
-        std::fs::copy(&self.lib_path, &self.lib_copy_path).unwrap();
-
-        // reload library
-        self.lib = Some(unsafe { Library::new(&self.lib_copy_path).unwrap() });
-        self.functions = VTable::load(&self.lib.as_ref().unwrap());
-    }
+fn load_symbol<T>(lib: &Library, symbol: &str) -> RawSymbol<T> {
+    unsafe { lib.get::<T>(symbol.as_bytes()).unwrap().into_raw() }
 }
