@@ -4,17 +4,17 @@ use std::ffi::OsStr;
 
 pub struct App {
     _lib: Library,
-    hello: RawSymbol<fn() -> ()>,
+    update: RawSymbol<fn() -> ()>,
 }
 
 impl App {
     pub fn new<P: AsRef<OsStr>>(lib_path: P) -> Self {
         let _lib = unsafe { Library::new(lib_path).unwrap() };
-        let hello = { unsafe { _lib.get::<fn() -> ()>(b"hello").unwrap().into_raw() } };
-        App { _lib, hello }
+        let update = { unsafe { _lib.get::<fn() -> ()>(b"update").unwrap().into_raw() } };
+        App { _lib, update }
     }
 
-    pub fn hello(&self) {
-        (self.hello)()
+    pub fn update(&self) {
+        (self.update)()
     }
 }

@@ -1,4 +1,4 @@
 #[no_mangle]
-pub fn hello() {
+pub fn update() {
     println!("Hello, library!");
 }

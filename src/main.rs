@@ -31,7 +31,7 @@ fn key_is_down(key: winapi::ctypes::c_int) -> bool {
 
 fn main() {
     let app = load_app::App::new("./app.dll");
-    app.hello();
+    app.update();
 
     // loop until escape
     let mut prev_tick = std::time::SystemTime::now();
@@ -55,7 +55,7 @@ fn main() {
 
         if now.duration_since(prev_tick).unwrap().as_millis() > 1000 {
             prev_tick = now;
-            app.hello(); // make this "update"
+            app.update(); // make this "update"
         }
     }
 
