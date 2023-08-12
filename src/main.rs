@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    process::{Child, ExitStatus},
-};
+use std::process::{Child, ExitStatus};
 
 mod load_app;
 
@@ -43,7 +40,7 @@ fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
 }
 
 fn main() {
-    let app = load_app::App::new(&PathBuf::from("./app.dll"));
+    let mut app = load_app::App::new("app.dll");
     app.update();
 
     // loop until escape
@@ -81,6 +78,7 @@ fn main() {
             build_cmd_invokation = None;
             if status.success() {
                 println!("Done rebuilding");
+                app.reload_library();
             } else {
                 eprintln!("Build failed");
             }
