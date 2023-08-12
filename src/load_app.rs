@@ -1,7 +1,7 @@
 use libloading::os::windows::Symbol as RawSymbol;
 use libloading::Library;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct HotLoadedApp {
     lib: Option<Library>,
@@ -14,8 +14,10 @@ impl HotLoadedApp {
     pub fn new(lib_name: &str) -> Self {
         // Loading a DLL locks it, which prevents rebuilding.
         // Creating a copy to circumvent this.
-        let (orignal_lib_path, copied_lib_path) = library_paths(lib_name);
+        let orignal_lib_path = library_path(lib_name);
+        let copied_lib_path = copied_library_path(&orignal_lib_path);
         std::fs::copy(&orignal_lib_path, &copied_lib_path).unwrap();
+
         let lib = Some(unsafe { Library::new(&copied_lib_path).unwrap() });
 
         HotLoadedApp {
@@ -52,14 +54,15 @@ impl Drop for HotLoadedApp {
     }
 }
 
-fn library_paths(lib_name: &str) -> (PathBuf, PathBuf) {
-    let lib_path = exe_dir().join(lib_name);
-    let lib_copy_path = exe_dir().join(format!(
-        "{}-0.dll",
-        lib_path.file_stem().unwrap().to_string_lossy()
-    ));
+fn library_path(lib_name: &str) -> PathBuf {
+    exe_dir().join(lib_name)
+}
 
-    (lib_path, lib_copy_path)
+fn copied_library_path(library_path: &Path) -> PathBuf {
+    exe_dir().join(format!(
+        "{}-0.dll",
+        library_path.file_stem().unwrap().to_string_lossy()
+    ))
 }
 
 fn exe_dir() -> PathBuf {
