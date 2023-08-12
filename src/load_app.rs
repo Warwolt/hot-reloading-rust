@@ -51,6 +51,7 @@ impl App {
 
         let lib = unsafe { Library::new(&lib_copy_path).unwrap() };
         let functions = VTable::load(&lib);
+
         App {
             lib: Some(lib),
             functions,
