@@ -1,9 +1,14 @@
+use crate::load_app::HotLoadedApp;
+use app::App;
+#[allow(unused)]
 use std::process::{Child, ExitStatus};
 
-use app::App;
+#[cfg(debug_assertions)]
+#[path = "load_app_shared.rs"]
+mod load_app;
 
-use crate::load_app::HotLoadedApp;
-
+#[cfg(not(debug_assertions))]
+#[path = "load_app_static.rs"]
 mod load_app;
 
 struct Button {
@@ -35,6 +40,7 @@ fn key_is_down(key: winapi::ctypes::c_int) -> bool {
     unsafe { winapi::um::winuser::GetKeyState(key) & 1 << 15 != 0 }
 }
 
+#[cfg(debug_assertions)]
 fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
     if let Some(child) = child {
         child.try_wait().unwrap()
@@ -44,7 +50,11 @@ fn check_command_status(child: &mut Option<Child>) -> Option<ExitStatus> {
 }
 
 fn main() {
+    #[cfg(debug_assertions)]
     let mut app = HotLoadedApp::new("app.dll");
+    #[cfg(not(debug_assertions))]
+    let app = HotLoadedApp::new();
+
     let mut state = app::State { counter: 0 };
 
     let mut prev_tick = std::time::SystemTime::now();
@@ -67,7 +77,7 @@ fn main() {
             break 'main;
         }
 
-        if f5_key.pressed_now() && build_cmd_invokation.is_none() {
+        if cfg!(debug_assertions) && f5_key.pressed_now() && build_cmd_invokation.is_none() {
             println!("Rebuilding code");
             build_cmd_invokation = Some(build_cmd.spawn().unwrap());
         }
@@ -78,6 +88,7 @@ fn main() {
             app.render(&state);
         }
 
+        #[cfg(debug_assertions)]
         if let Some(status) = check_command_status(&mut build_cmd_invokation) {
             build_cmd_invokation = None;
             if status.success() {

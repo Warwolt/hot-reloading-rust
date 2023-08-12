@@ -12,11 +12,19 @@ struct AppImpl;
 impl App for AppImpl {
     #[no_mangle]
     fn update(&self, state: &mut State) {
-        state.counter += 1;
+        update(state);
     }
 
     #[no_mangle]
     fn render(&self, state: &State) {
-        println!("counter = {}", state.counter);
+        render(state);
     }
+}
+
+pub fn update(state: &mut State) {
+    state.counter += 1;
+}
+
+pub fn render(state: &State) {
+    println!("counter = {}", state.counter);
 }
